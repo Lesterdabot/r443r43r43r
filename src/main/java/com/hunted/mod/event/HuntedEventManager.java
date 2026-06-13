@@ -35,6 +35,7 @@ import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDropsEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.neoforged.neoforge.event.level.BlockEvent;
+import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.server.ServerStartedEvent;
 import net.neoforged.neoforge.event.tick.PlayerTickEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
@@ -67,6 +68,7 @@ public class HuntedEventManager {
 
     private static int particleTick = 0;
     private static int soundTick    = 0;
+    private static int groundCrownTick = 0;
 
     @SubscribeEvent
     public static void onServerStarted(ServerStartedEvent e) {
@@ -89,6 +91,69 @@ public class HuntedEventManager {
         ServerPlayer p = server.getPlayerList().getPlayer(targetUUID);
         return p != null ? p.getName().getString() : "none";
     }
+
+    /** Force stop the event */
+    public static boolean stopEvent() {
+        if (phase == Phase.IDLE) return false;
+        broadcast("§5§l☠ HUNTED ☠ §r§7Event force-stopped by admin.");
+        // Remove crown from target if they have it
+        if (server != null && targetUUID != null) {
+            ServerPlayer t = server.getPlayerList().getPlayer(targetUUID);
+            if (t != null) removeAllCrowns(t);
+        }
+        // Delete any ground crowns
+        if (server != null) {
+            for (ServerLevel level : server.getAllLevels())
+                level.getEntitiesOfClass(ItemEntity.class,
+                    new AABB(-30000, -64, -30000, 30000, 320, 30000),
+                    ie -> ie.getItem().is(HuntedItems.CURSED_CROWN.get()))
+                    .forEach(ie -> ie.discard());
+        }
+        reset();
+        return true;
+    }
+
+    /** Force the win condition right now */
+    public static boolean forceWin() {
+        if (phase != Phase.ACTIVE) return false;
+        endEventWithWinner();
+        return true;
+    }
+
+    /** Set remaining event time in seconds */
+    public static boolean setTime(int seconds) {
+        if (phase != Phase.ACTIVE) return false;
+        eventTicksLeft = seconds * 20;
+        broadcast("§5☠ §eEvent timer set to §c" + seconds + "s §eby admin.");
+        return true;
+    }
+
+    /** Give the crown to a specific player for testing */
+    public static boolean giveCrown(ServerPlayer player) {
+        if (phase != Phase.ACTIVE) return false;
+        // Remove from current target if any
+        if (targetUUID != null) {
+            ServerPlayer current = server.getPlayerList().getPlayer(targetUUID);
+            if (current != null) removeAllCrowns(current);
+        }
+        // Delete ground crowns
+        for (ServerLevel level : server.getAllLevels())
+            level.getEntitiesOfClass(ItemEntity.class,
+                new AABB(-30000, -64, -30000, 30000, 320, 30000),
+                ie -> ie.getItem().is(HuntedItems.CURSED_CROWN.get()))
+                .forEach(ie -> ie.discard());
+
+        ItemStack cur = player.getInventory().offhand.get(0);
+        if (!cur.isEmpty()) player.getInventory().add(cur);
+        player.getInventory().offhand.set(0, new ItemStack(HuntedItems.CURSED_CROWN.get(), 1));
+        scanningForNewTarget = false;
+        setTarget(player);
+        return true;
+    }
+
+    /** Get target UUID for tp command */
+    public static UUID getTargetUUID() { return targetUUID; }
+    public static int  getEventSecsLeft() { return eventTicksLeft / 20; }
 
     @SubscribeEvent
     public static void onServerTick(ServerTickEvent.Post e) {
@@ -286,11 +351,35 @@ public class HuntedEventManager {
 
     private static void doNewTargetScan() {
         for (ServerPlayer p : server.getPlayerList().getPlayers())
-            if (playerHasCrown(p)) { scanningForNewTarget = false; setTarget(p); return; }
-        for (ServerLevel level : server.getAllLevels())
+            if (playerHasCrown(p)) { scanningForNewTarget = false; groundCrownTick = 0; setTarget(p); return; }
+
+        // Check if crown is on the ground
+        boolean crownOnGround = false;
+        for (ServerLevel level : server.getAllLevels()) {
             if (!level.getEntitiesOfClass(ItemEntity.class,
                     new AABB(-30000, -64, -30000, 30000, 320, 30000),
-                    ie -> ie.getItem().is(HuntedItems.CURSED_CROWN.get())).isEmpty()) return;
+                    ie -> ie.getItem().is(HuntedItems.CURSED_CROWN.get())).isEmpty()) {
+                crownOnGround = true;
+                break;
+            }
+        }
+
+        if (crownOnGround) {
+            // Auto-delete crown after 10 seconds on ground
+            groundCrownTick++;
+            if (groundCrownTick >= 200) {
+                for (ServerLevel level : server.getAllLevels()) {
+                    level.getEntitiesOfClass(ItemEntity.class,
+                        new AABB(-30000, -64, -30000, 30000, 320, 30000),
+                        ie -> ie.getItem().is(HuntedItems.CURSED_CROWN.get()))
+                        .forEach(ie -> ie.discard());
+                }
+                broadcast("§5☠ §eThe crown faded — hunt over!");
+                reset();
+            }
+            return;
+        }
+
         broadcast("§5☠ §eThe crown has vanished! Hunt over.");
         reset();
     }
@@ -398,6 +487,23 @@ public class HuntedEventManager {
         targetUUID = null; scanningForNewTarget = true; scanCooldown = 40;
     }
 
+    /** When target logs off, remove crown and start scanning */
+    @SubscribeEvent
+    public static void onPlayerLogout(PlayerEvent.PlayerLoggedOutEvent e) {
+        if (phase != Phase.ACTIVE || targetUUID == null) return;
+        if (!(e.getEntity() instanceof ServerPlayer player)) return;
+        if (!player.getUUID().equals(targetUUID)) return;
+
+        // Remove crown from their inventory so it doesn't dupe on relog
+        removeAllCrowns(player);
+
+        broadcast("§5☠ §c" + player.getName().getString() + " §elogged out with the crown! §7It was lost...");
+        targetUUID           = null;
+        scanningForNewTarget = true;
+        groundCrownTick      = 0;
+        scanCooldown         = 40;
+    }
+
     @SubscribeEvent
     public static void onBlockBreak(BlockEvent.BreakEvent e) {
         if (phase != Phase.ACTIVE || chestPos == null || targetUUID != null) return;
@@ -486,7 +592,7 @@ public class HuntedEventManager {
         chestPos = null; chestLevel = null; targetUUID = null;
         broadcastTicksLeft = 0; eventTicksLeft = 0;
         scanningForNewTarget = false; scanCooldown = 0;
-        particleTick = 0; soundTick = 0;
+        particleTick = 0; soundTick = 0; groundCrownTick = 0;
         // Send reset HUD to all players
         if (server != null) {
             HuntedHudPacket resetPkt = new HuntedHudPacket(false, false, "", 0, 0, 0, 0, 0, "");
