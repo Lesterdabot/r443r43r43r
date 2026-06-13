@@ -217,10 +217,11 @@ public class HuntedEventManager {
         if (soundTick >= 200) {
             soundTick = 0;
             ServerPlayer t = server.getPlayerList().getPlayer(targetUUID);
-            if (t != null)
+            if (t != null) {
                 SoundEvent choir = SoundEvent.createVariableRangeEvent(ResourceLocation.fromNamespaceAndPath("hunted", "crown.choir"));
                 ((ServerLevel) t.level()).playSound(null, t.blockPosition(),
                     choir, SoundSource.MASTER, 0.6f, 1.0f);
+            }
         }
     }
 
