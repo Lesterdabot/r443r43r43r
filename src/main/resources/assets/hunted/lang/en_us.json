@@ -1,0 +1,9 @@
+{
+  "item.hunted.cursed_crown": "§5§lCursed Crown",
+  "item.hunted.cursed_crown.desc1": "§cThe hunt never ends.",
+  "item.hunted.cursed_crown.desc2": "§7Your location is revealed to all.",
+  "subtitles.hunted.crown.claimed": "The crown stirs...",
+  "subtitles.hunted.crown.tick": "The crown pulses...",
+  "subtitles.hunted.event.spawn": "Something dark awakens...",
+  "subtitles.hunted.event.win": "Victory!"
+}

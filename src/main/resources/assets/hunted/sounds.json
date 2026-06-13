@@ -1,0 +1,46 @@
+{
+  "hunted.crown.claimed": {
+    "sounds": [
+      {
+        "name": "hunted:crown_claimed",
+        "volume": 1.0,
+        "pitch": 1.0,
+        "stream": false
+      }
+    ],
+    "subtitle": "The crown awakens..."
+  },
+  "hunted.crown.choir": {
+    "sounds": [
+      {
+        "name": "hunted:crown_choir",
+        "volume": 0.7,
+        "pitch": 1.0,
+        "stream": false
+      }
+    ],
+    "subtitle": "The curse pulses..."
+  },
+  "hunted.event.spawn": {
+    "sounds": [
+      {
+        "name": "minecraft:entity.lightning_bolt.thunder",
+        "volume": 1.0,
+        "pitch": 0.5,
+        "type": "event"
+      }
+    ],
+    "subtitle": "Something dark awakens..."
+  },
+  "hunted.event.win": {
+    "sounds": [
+      {
+        "name": "minecraft:ui.toast.challenge_complete",
+        "volume": 1.0,
+        "pitch": 1.0,
+        "type": "event"
+      }
+    ],
+    "subtitle": "Victory!"
+  }
+}

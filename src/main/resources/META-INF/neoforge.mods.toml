@@ -1,0 +1,27 @@
+modLoader   = "javafml"
+loaderVersion = "[1,)"
+license     = "MIT"
+
+[[mods]]
+modId       = "hunted"
+version     = "3.0.0"
+displayName = "Hunted"
+logoFile    = "hunted_logo.png"
+description = '''
+The Cursed Crown event. Claim it. Survive it. Win it.
+One hour. Everyone hunts you. Last one holding wins.
+'''
+
+[[dependencies.hunted]]
+    modId        = "neoforge"
+    type         = "required"
+    versionRange = "[21.1,)"
+    ordering     = "NONE"
+    side         = "BOTH"
+
+[[dependencies.hunted]]
+    modId        = "minecraft"
+    type         = "required"
+    versionRange = "[1.21.1,)"
+    ordering     = "NONE"
+    side         = "BOTH"
